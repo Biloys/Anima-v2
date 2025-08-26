@@ -5,6 +5,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 import requests
 from typing import Optional
+import io
 
 from PIL import Image, ImageTk
 
@@ -135,6 +136,21 @@ class DesktopApp(tk.Tk):
         try:
             if self.use_remote.get():
                 url = self.server_entry.get().strip()
+                # Probe remote server device/health
+                try:
+                    h = requests.get(f"{url}/health", timeout=5)
+                    if h.ok:
+                        info = h.json()
+                        logging.getLogger("anima").info(
+                            "Remote health | device=%s cuda_available=%s name=%s count=%s capability=%s",
+                            info.get("device"), info.get("cuda_available"), info.get("cuda_device_name"),
+                            info.get("cuda_device_count"), info.get("cuda_capability")
+                        )
+                        self.status.config(text=f"Remote: {info.get('device')} (CUDA: {info.get('cuda_available')})")
+                    else:
+                        logging.getLogger("anima").warning("Health check failed: %s %s", h.status_code, h.text)
+                except Exception as _e:
+                    logging.getLogger("anima").warning("Health check error: %s", _e)
                 files = {"image": ("image.png", self._pil_to_png_bytes(self.image), "image/png")}
                 data = {
                     "prompt": prompt,

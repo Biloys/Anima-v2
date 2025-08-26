@@ -1,5 +1,6 @@
 import io
 import os
+import logging
 from typing import Optional
 
 import torch
@@ -12,11 +13,23 @@ from .i2v_runner import I2VRunner
 
 
 app = FastAPI(title="Anima CUDA I2V Server", version="0.1.0")
+LOGGER = logging.getLogger("anima")
 
 
 def get_runner_cuda() -> I2VRunner:
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    runner = I2VRunner(device=device, dtype=torch.float16 if device == "cuda" else torch.float32)
+    forced = os.getenv("ANIMA_DEVICE", "").strip().lower() or None
+    cuda_available = torch.cuda.is_available()
+    if forced == "cuda" and not cuda_available:
+        LOGGER.warning("ANIMA_DEVICE=cuda requested but CUDA is not available; falling back to CPU")
+
+    if forced in ("cuda", "cpu"):
+        device = forced if (forced != "cuda" or cuda_available) else "cpu"
+    else:
+        device = "cuda" if cuda_available else "cpu"
+
+    dtype = torch.float16 if device == "cuda" else torch.float32
+    LOGGER.info("Server runner device resolved: %s | cuda_available=%s", device, cuda_available)
+    runner = I2VRunner(device=device, dtype=dtype)
     return runner
 
 
@@ -32,7 +45,26 @@ def _startup() -> None:
 @app.get("/health")
 def health() -> JSONResponse:
     device = RUNNER.device if RUNNER else "uninitialized"
-    return JSONResponse({"ok": True, "device": device})
+    cuda_available = torch.cuda.is_available()
+    cuda_device_name: Optional[str] = None
+    cuda_device_count: int = 0
+    cuda_capability: Optional[str] = None
+    if cuda_available:
+        try:
+            cuda_device_name = torch.cuda.get_device_name(0)
+            cuda_device_count = torch.cuda.device_count()
+            major, minor = torch.cuda.get_device_capability(0)
+            cuda_capability = f"{major}.{minor}"
+        except Exception:
+            pass
+    return JSONResponse({
+        "ok": True,
+        "device": device,
+        "cuda_available": bool(cuda_available),
+        "cuda_device_name": cuda_device_name,
+        "cuda_device_count": int(cuda_device_count),
+        "cuda_capability": cuda_capability,
+    })
 
 
 @app.post("/i2v")
