@@ -27,13 +27,18 @@ Then open the URL shown by Streamlit (usually http://localhost:8501).
 
 ### 2) Create environment and install CUDA PyTorch
 Open "Anaconda Prompt (Miniconda3)":
-```bash
+```bat
 conda create -n anima-cuda python=3.11 -y
 conda activate anima-cuda
 
-pip install --index-url https://download.pytorch.org/whl/cu121 \
-  torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2
+:: Windows (CMD/Anaconda Prompt) — ОДНИМ РЯДКОМ!
+python -m pip install --index-url https://download.pytorch.org/whl/cu121 torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2
+
 python -c "import torch; print(torch.cuda.is_available(), torch.version.cuda)"
+```
+If you use PowerShell, also run it as a single line (no `\`):
+```powershell
+python -m pip install --index-url https://download.pytorch.org/whl/cu121 torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2
 ```
 
 ### 3) Install project requirements
